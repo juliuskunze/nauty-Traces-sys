@@ -1301,4 +1301,71 @@ mod tests {
         assert_eq!(orig_sg.d, sg.d);
         assert!(orig_sg.e != sg.e);
     }
+
+    #[test]
+    fn traces_canon_issue() {
+        let mut options = TracesOptions::default();
+        options.getcanon = TRUE;
+        options.defaultptn = FALSE;
+        let mut stats = TracesStats::default();
+
+        let n = 6;
+        let m = SETWORDSNEEDED(n);
+        unsafe {
+            nauty_check(
+                WORDSIZE as c_int,
+                m as c_int,
+                n as c_int,
+                NAUTYVERSIONID as c_int,
+            );
+        }
+
+        let sg = &mut SparseGraph {
+            v: vec![0, 1, 3, 4, 5, 7],
+            d: vec![1, 2, 1, 1, 2, 1],
+            e: vec![1, 0, 2, 1, 4, 3, 5, 4],
+        };
+        let mut lab = vec![3, 0, 5, 4, 2, 1];
+        let mut ptn = vec![1, 0, 1, 1, 1, 0];
+        let mut orbits = vec![0; n];
+        let cg = &mut sparsegraph::default();
+
+        unsafe {
+            Traces(
+                &mut sg.into(),
+                lab.as_mut_ptr(),
+                ptn.as_mut_ptr(),
+                orbits.as_mut_ptr(),
+                &mut options,
+                &mut stats,
+                cg,
+            );
+        }
+
+        let sg = &mut SparseGraph {
+            v: vec![0, 1, 2, 4, 5, 7],
+            d: vec![1, 1, 2, 1, 2, 1],
+            e: vec![4, 2, 1, 3, 2, 0, 5, 4],
+        };
+        let mut lab_ = vec![5, 1, 4, 3, 2, 0];
+        let cg_ = &mut sparsegraph::default();
+
+        unsafe {
+            Traces(
+                &mut sg.into(),
+                lab_.as_mut_ptr(),
+                ptn.as_mut_ptr(),
+                orbits.as_mut_ptr(),
+                &mut options,
+                &mut stats,
+                cg_,
+            );
+        }
+
+        println!("{:?}, {:?}", lab, lab_); // [3, 0, 5, 2, 4, 1], [5, 1, 3, 0, 2, 4], not canonical.
+        assert_eq!(((n, sg.e.len()), (n, sg.e.len())), ((cg.vlen, cg.elen), (cg_.vlen,  cg_.elen)));
+        unsafe {
+             assert_eq!(TRUE, aresame_sg(cg, cg_));
+        }
+    }
 }
